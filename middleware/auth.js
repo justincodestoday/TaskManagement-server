@@ -6,7 +6,7 @@ module.exports = (req, res, next) => {
 
   if (!token) {
     return res.status(401).json({
-      message: "Unauthorised",
+      message: "Authorization denied",
     });
   }
 
@@ -14,10 +14,10 @@ module.exports = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
     req.user = decoded.data;
     next();
-  } catch (e) {
+  } catch (err) {
     return res.status(401).json({
-      e,
-      message: "Unauthorised",
+      err,
+      message: "Authorization denied",
     });
   }
 };

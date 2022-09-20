@@ -26,8 +26,10 @@ app.use(express.json());
 app.use(cors());
 
 app.use("/users", require("./api/users"));
-app.use("/cards", require("./api/cards"));
+app.use("/boards", require("./api/boards"));
 app.use("/lists", require("./api/lists"));
+app.use("/cards", require("./api/cards"));
+// app.use("/checklists", require("./api/checklists"));
 
 app.listen(PORT, () => console.log("Server is running on PORT: " + PORT));
 mongoose.connection.once("open", () =>

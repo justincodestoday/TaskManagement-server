@@ -4,14 +4,14 @@ const ListSchema = new mongoose.Schema({
   title: String,
   cards: [
     {
-      cardId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Card",
-      },
-      title: String,
-      status: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Cards",
     },
   ],
+  archived: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 module.exports = mongoose.model("List", ListSchema);
