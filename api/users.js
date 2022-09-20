@@ -1,134 +1,161 @@
 const express = require("express");
 const router = express.Router();
+const gravatar = require("gravatar");
 const bcrypt = require("bcrypt");
 const { check, validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
 require("dotenv").config();
 
+const User = require("../models/User");
+const auth = require("../middleware/auth");
+
+// Register user
 router.post(
-    "/register",
-    check("firstname").not().isEmpty().withMessage("First name is required"),
+  "/register",
+  [
+    check("firstname", "First name is required").not().isEmpty(),
+    check("lastname", "Last name is required").not().isEmpty(),
+    check("email", "Please provide a valid email").isEmail(),
+    check("password", "Password must be at least 8 characters long").isLength({
+      min: 8,
+    }),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({
+        message: errors.array(),
+        // message: JSON.stringify(errors.array()),
+      });
 
-    check("lastname").not().isEmpty().withMessage("Last name is required"),
+    try {
+      const { firstname, lastname, email, password } = req.body;
 
-    check("username")
-        .not()
-        .isEmpty()
-        .withMessage("Username is required")
-        .bail()
-        .isEmail()
-        .withMessage("Email is not valid"),
+      // See if user exists
+      const userFound = await User.findOne({ email });
+      if (userFound) {
+        return res.status(400).json({ message: "User already exists" });
+      }
 
-    check("password")
-        .not()
-        .isEmpty()
-        .withMessage("Password is required")
-        .bail()
-        .isLength({
-            min: 8,
-        })
-        .withMessage("Password must be at least 8 characters long"),
+      const salt = bcrypt.genSaltSync(10);
+      const hash = bcrypt.hashSync(password, salt);
 
-    async (req, res) => {
-        try {
-            const { firstname, lastname, username, password } = req.body;
+      // Register new user
+      const user = new User({
+        name: firstname + " " + lastname,
+        email,
+        avatar: gravatar.url(email, { s: "200", r: "pg", d: "mm" }),
+        password: hash,
+      });
 
-            const userFound = await User.findOne({
-                username,
-            });
-            if (userFound) {
-                return res.status(400).json({
-                    message: "Email already in use",
-                });
-            }
+      await user.save();
+      // return res.status(200).json({
+      //   user,
+      //   message: "Registered successfully",
+      // });
 
-            const errors = validationResult(req);
-            if (!errors.isEmpty())
-                return res.status(400).json({
-                    message: JSON.stringify(errors.array()),
-                });
-
-            const user = new User(req.body);
-
-            const salt = bcrypt.genSaltSync(10);
-            const hash = bcrypt.hashSync(password, salt);
-            user.password = hash;
-
-            user.save();
-            return res.status(200).json({
-                user,
-                message: "Registered successfully",
-            });
-        } catch (e) {
-            return res.status(400).json({
-                e,
-                message: "Register was not successful",
-            });
+      // Return jsonwebtoken
+      jwt.sign(
+        {
+          data: userFound,
+        },
+        process.env.SECRET_KEY,
+        {
+          expiresIn: "1h",
+        },
+        (err, token) => {
+          if (err) throw err;
+          return res
+            .status(200)
+            .json({ token, message: "Registered successfully", user });
         }
+      );
+    } catch (err) {
+      console.error(err.message);
+      return res.status(500).json({ message: "Server Error" });
     }
+  }
 );
 
+// Authenticate user and get token
 router.post(
-    "/login",
-    check("username").not().isEmpty().withMessage("Username is required"),
+  "/login",
+  [
+    check("email", "Email is required").not().isEmpty(),
+    check("password", "Password is required").not().isEmpty(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ message: errors.array() });
 
-    check("password").not().isEmpty().withMessage("Password is required"),
+    try {
+      const { email, password } = req.body;
 
-    async (req, res) => {
-        try {
-            const { username, password } = req.body;
+      // See if user exists
+      const userFound = await User.findOne({ email });
+      if (!userFound) {
+        return res
+          .status(400)
+          .json({ message: "No account was created using this email" });
+      }
 
-            const errors = validationResult(req);
-            if (!errors.isEmpty())
-                return res.status(400).json({
-                    message: JSON.stringify(errors.array()),
-                });
+      // See if password matches
+      const passwordMatch = bcrypt.compareSync(password, userFound.password);
+      if (!passwordMatch)
+        return res.status(400).json({ message: "Incorrect password" });
 
-            let userFound = await User.findOne({
-                username,
-            });
-            if (!userFound) {
-                return res.status(400).json({
-                    message: "No account was created using this email",
-                });
-            }
-
-            let passwordMatch = bcrypt.compareSync(
-                password,
-                userFound.password
-            );
-            if (!passwordMatch)
-                return res.status(400).json({
-                    message: "Incorrect password",
-                });
-
-            jwt.sign(
-                {
-                    data: userFound,
-                },
-                process.env.SECRET_KEY,
-                {
-                    expiresIn: "1h",
-                },
-                (err, token) => {
-                    if (err)
-                        return res.status(400).json({
-                            err,
-                            message: "Unable to generate token",
-                        });
-                    return res
-                        .status(200)
-                        .json({ token, message: "Logged in successfully" });
-                }
-            );
-        } catch (e) {
-            return res.status(400).json({
-                e,
-                message: "Invalid Credentials",
-            });
+      // Return jsonwebtoken
+      jwt.sign(
+        {
+          data: userFound,
+        },
+        process.env.SECRET_KEY,
+        {
+          expiresIn: "1h",
+        },
+        (err, token) => {
+          if (err)
+            return res
+              .status(400)
+              .json({ message: "Unable to generate token" });
+          return res
+            .status(200)
+            .json({ token, message: "Logged in successfully" });
         }
+      );
+    } catch (err) {
+      console.error(err.message);
+      return res.status(500).json({ message: "Server Error" });
     }
+  }
 );
+
+// ALERT! Is this needed?
+// Get users with email regex
+router.get("/:input", auth, async (req, res) => {
+  try {
+    const regex = new RegExp(req.params.input, "i");
+    const users = await User.find({
+      email: regex,
+    }).select("-password");
+
+    res.json(users.filter((user) => user.id !== req.user.id));
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server error");
+  }
+});
+
+// Get authorized user
+router.get("/", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server error");
+  }
+});
 
 module.exports = router;
