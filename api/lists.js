@@ -2,50 +2,43 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const member = require("../middleware/member");
-const { check, validationResult } = require("express-validator");
+// const { check, validationResult } = require("express-validator");
 
 const User = require("../models/User");
 const Board = require("../models/Board");
 const List = require("../models/List");
 
 // Add a list
-router.post(
-  "/",
-  [auth, member, [check("title", "Title is required").not().isEmpty()]],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ message: errors.array() });
+router.post("/", [auth, member], async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (title === "") {
+      return res.status(400).json({ message: "Title is required" });
     }
 
-    try {
-      const { title } = req.body;
-      const boardId = req.header("boardId");
+    const boardId = req.header("boardId");
 
-      // Create and save the list
-      const newList = new List({ title });
-      const list = await newList.save();
+    // Create and save the list
+    const newList = new List({ title });
+    const list = await newList.save();
 
-      // Assign the list to the board
-      const board = await Board.findById(boardId);
-      board.lists.push(list.id);
+    // Assign the list to the board
+    const board = await Board.findById(boardId);
+    board.lists.push(list.id);
 
-      // Log activity
-      const user = await User.findById(req.user._id);
-      board.activity.unshift({
-        text: `${user.name} added '${title}' to this board`,
-      });
-      await board.save();
+    // Log activity
+    const user = await User.findById(req.user._id);
+    board.activity.unshift({
+      text: `${user.name} added '${title}' to this board`,
+    });
+    await board.save();
 
-      return res
-        .status(200)
-        .json({ message: "List created successfully", list });
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
-    }
+    return res.status(200).json(list);
+  } catch (err) {
+    console.error(err.message);
+    return res.status(500).json({ message: "Server Error" });
   }
-);
+});
 
 // Get all of a board's lists
 router.get("/board-lists/:boardId", auth, async (req, res) => {
@@ -83,45 +76,41 @@ router.get("/:id", auth, async (req, res) => {
 });
 
 // Rename a list's title
-router.patch(
-  "/rename/:id",
-  [auth, member, [check("title", "Title is required").not().isEmpty()]],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ message: errors.array() });
+router.patch("/rename/:id", [auth, member], async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (title === "") {
+      return res.status(400).json({ message: "Title is required" });
     }
 
-    try {
-      const list = await List.findById(req.params.id);
-      if (!list) {
-        return res.status(404).json({ message: "List not found" });
-      }
-
-      const board = await Board.findById(req.header("boardId"));
-      if (!board) {
-        return res.status(404).json({ message: "Board not found" });
-      }
-
-      // Log activity
-      const user = await User.findById(req.user._id);
-      if (req.body.title !== list.title) {
-        board.activity.unshift({
-          text: `${user.name} renamed this list (from '${list.title}')`,
-        });
-      }
-      await board.save();
-
-      list.title = req.body.title;
-      await list.save();
-
-      return res.status(200).json(list);
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
+    const list = await List.findById(req.params.id);
+    if (!list) {
+      return res.status(404).json({ message: "List not found" });
     }
+
+    const board = await Board.findById(req.header("boardId"));
+    if (!board) {
+      return res.status(404).json({ message: "Board not found" });
+    }
+
+    // Log activity
+    const user = await User.findById(req.user._id);
+    if (title !== list.title) {
+      board.activity.unshift({
+        text: `${user.name} renamed the list to '${title}' (from '${list.title}')`,
+      });
+    }
+    await board.save();
+
+    list.title = title;
+    await list.save();
+
+    return res.status(200).json(list);
+  } catch (err) {
+    console.error(err.message);
+    return res.status(500).json({ message: "Server Error" });
   }
-);
+});
 
 // Archive/Unarchive a list
 router.patch("/archive/:archive/:id", [auth, member], async (req, res) => {
@@ -180,7 +169,7 @@ router.patch("/move/:id", [auth, member], async (req, res) => {
 });
 
 // Delete a list
-router.delete("/delete-list/:id", [auth, member], async (req, res) => {
+router.delete("/:id", [auth, member], async (req, res) => {
   try {
     const list = await List.findById(req.params.id);
     if (!list) return res.status(404).json({ message: "List not found" });

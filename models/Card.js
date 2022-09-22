@@ -4,7 +4,6 @@ const CardSchema = new mongoose.Schema({
   title: String,
   description: String,
   label: String,
-  status: String,
   members: [
     {
       _id: false,
