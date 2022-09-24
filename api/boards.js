@@ -10,7 +10,7 @@ const Board = require("../models/Board");
 // Add a board
 router.post("/", auth, async (req, res) => {
   try {
-    const { title, backgroundURL } = req.body;
+    const { title } = req.body;
 
     if (title === "") {
       return res.status(400).json({ message: "Title is required" });
@@ -19,7 +19,7 @@ router.post("/", auth, async (req, res) => {
     // BACKGROUNDURL USE FILE OR URL?
 
     // Create and save the board
-    const newBoard = new Board({ title, backgroundURL });
+    const newBoard = new Board({ title });
     const board = await newBoard.save();
 
     // Add board to user's boards
@@ -34,7 +34,9 @@ router.post("/", auth, async (req, res) => {
     board.activity.unshift({ text: `${user.name} created this board` });
     await board.save();
 
-    return res.status(200).json(board);
+    return res
+      .status(200)
+      .json({ message: "Board created successfully", board });
   } catch (err) {
     console.error(err.message);
     return res.status(500).json({ message: "Server Error" });
@@ -193,6 +195,7 @@ router.put("/remove-member/:userId", [auth, member], async (req, res) => {
   }
 });
 
+// Probably causes errors
 // Delete a board
 router.delete("/:id", [auth, member], async (req, res) => {
   try {

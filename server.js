@@ -1,25 +1,23 @@
 const express = require("express");
+const path = require("path");
 const app = express();
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 
-const {
-  PORT,
-  DB_HOST,
-  DB_PORT,
-  DB_NAME,
-  MONGO_DB_USERNAME,
-  MONGO_DB_PASSWORD,
-  MONGO_DB_CLUSTER,
-} = process.env;
+const { PORT, LOCAL_URI, MONGODB_URI } = process.env;
 
 // LOCAL DB
-// mongoose.connect(`mongodb://${DB_HOST}:${DB_PORT}/${DB_NAME}`);
+// mongoose.connect(LOCAL_URI);
 
 // ONLINE DB, change the server and database names
 mongoose.connect(
-  `mongodb+srv://${MONGO_DB_USERNAME}:${MONGO_DB_PASSWORD}@${MONGO_DB_CLUSTER}/${DB_NAME}?retryWrites=true&w=majority`
+  MONGODB_URI,
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  },
+  (err) => (err ? console.log(err) : console.log("MongoDB connected"))
 );
 
 app.use(express.json());
@@ -31,7 +29,14 @@ app.use("/lists", require("./api/lists"));
 app.use("/cards", require("./api/cards"));
 app.use("/checklists", require("./api/checklists"));
 
-app.listen(PORT, () => console.log("Server is running on PORT: " + PORT));
-mongoose.connection.once("open", () =>
-  console.log("We are connected to MongoDB")
-);
+// Serve static assets in production
+if (process.env.NODE_ENV === "production") {
+  // Set static folder
+  app.use(express.static("client/build"));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
+  });
+}
+
+app.listen(PORT, () => console.log("Server is running on PORT " + PORT));
