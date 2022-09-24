@@ -46,7 +46,7 @@ router.post("/register", async (req, res) => {
     const user = new User({
       name: firstname + " " + lastname,
       email,
-      avatar: gravatar.url(email, { s: "200", r: "pg", d: "mm" }),
+      avatar: gravatar.url(email, { s: "200", r: "pg", d: "wavatar" }),
       password: hash,
     });
 
