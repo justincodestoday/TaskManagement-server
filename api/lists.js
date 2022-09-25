@@ -84,7 +84,7 @@ router.get("/:id", auth, async (req, res) => {
 
 // Rename a list's title
 router.patch(
-  "/rename/:id",
+  "/rename/:boardId/:id",
   [
     auth,
     // member
@@ -101,7 +101,7 @@ router.patch(
         return res.status(404).json({ message: "List not found" });
       }
 
-      const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       if (!board) {
         return res.status(404).json({ message: "Board not found" });
       }
@@ -118,7 +118,9 @@ router.patch(
       list.title = title;
       await list.save();
 
-      return res.status(200).json(list);
+      return res
+        .status(200)
+        .json({ message: "List renamed successfully", list });
     } catch (err) {
       console.error(err.message);
       return res.status(500).json({ message: "Server Error" });

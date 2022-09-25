@@ -127,17 +127,22 @@ router.patch(
 
 // Add a board member
 router.put(
-  "/add-member/:userId",
+  "/add-member/:boardId/:userId",
   [
     auth,
     // member
   ],
   async (req, res) => {
     try {
-      const board = await Board.findById(req.header("boardId"));
+      // const board = await Board.findById(req.header("boardId"));
       const user = await User.findById(req.params.userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+
+      const board = await Board.findById(req.params.boardId);
+      if (!board) {
+        return res.status(404).json({ message: "Board not found" });
       }
 
       // See if the user is already a member of the board
@@ -178,7 +183,7 @@ router.put(
   ],
   async (req, res) => {
     try {
-      const board = await Board.findById(req.header("boardId"));
+      // const board = await Board.findById(req.header("boardId"));
       const user = await User.findById(req.params.userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
