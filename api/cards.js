@@ -11,7 +11,7 @@ const Card = require("../models/Card");
 
 // Add a card
 router.post(
-  "/",
+  "/:boardId/",
   [
     auth,
     // member
@@ -24,7 +24,7 @@ router.post(
         return res.status(400).json({ message: "Title is required" });
       }
 
-      const boardId = req.header("boardId");
+      const boardId = req.params.boardId;
 
       // Create and save the card
       const newCard = new Card({ title });
@@ -43,7 +43,11 @@ router.post(
       });
       await board.save();
 
-      return res.status(200).json({ cardId: card.id, listId });
+      return res.status(200).json({
+        message: "Card created successfully",
+        cardId: card.id,
+        listId,
+      });
     } catch (err) {
       console.error(err.message);
       return res.status(500).json({ message: "Server Error" });
@@ -111,7 +115,9 @@ router.patch(
       }
       await card.save();
 
-      return res.status(200).json(card);
+      return res
+        .status(200)
+        .json({ message: "Card edited successfully", card });
     } catch (err) {
       console.error(err.message);
       return res.status(500).json({ message: "Server Error" });
@@ -121,7 +127,7 @@ router.patch(
 
 // Archive/Unarchive a card
 router.patch(
-  "/archive/:archive/:id",
+  "/archive/:boardId/:archive/:id",
   [
     auth,
     // member
@@ -138,7 +144,7 @@ router.patch(
 
       // Log activity
       const user = await User.findById(req.user._id);
-      const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       board.activity.unshift({
         text: card.archived
           ? `${user.name} archived card '${card.title}'`
@@ -156,7 +162,7 @@ router.patch(
 
 // Move a card
 router.patch(
-  "/move/:id",
+  "/move/:boardId/:id",
   [
     auth,
     // member
@@ -164,7 +170,7 @@ router.patch(
   async (req, res) => {
     try {
       const { fromId, toId, toIndex } = req.body;
-      const boardId = req.header("boardId");
+      const boardId = req.params.boardId;
       const cardId = req.params.id;
 
       const from = await List.findById(fromId);
@@ -211,7 +217,7 @@ router.patch(
 
 // Add/Remove a member
 router.put(
-  "/add-member/:add/:cardId/:userId",
+  "/add-member/:boardId/:add/:cardId/:userId",
   [
     auth,
     // member
@@ -246,7 +252,7 @@ router.put(
       await card.save();
 
       // Log activity
-      const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       board.activity.unshift({
         text: `${user.name} ${add ? "joined" : "left"} '${card.title}'`,
       });
@@ -262,7 +268,7 @@ router.put(
 
 // Delete a card
 router.delete(
-  "/:listId/:id",
+  "/:boardId/:listId/:id",
   [
     auth,
     // member
@@ -281,7 +287,7 @@ router.delete(
 
       // Log activity
       const user = await User.findById(req.user._id);
-      const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       board.activity.unshift({
         text: `${user.name} deleted '${card.title}' from '${list.title}'`,
       });

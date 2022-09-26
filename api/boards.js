@@ -176,14 +176,14 @@ router.put(
 
 // Remove a board member
 router.put(
-  "/remove-member/:userId",
+  "/remove-member/:boardId/:userId",
   [
     auth,
     // member
   ],
   async (req, res) => {
     try {
-      // const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       const user = await User.findById(req.params.userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });

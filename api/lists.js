@@ -10,7 +10,7 @@ const List = require("../models/List");
 
 // Add a list
 router.post(
-  "/",
+  "/:boardId/",
   [
     auth,
     // member
@@ -22,7 +22,7 @@ router.post(
         return res.status(400).json({ message: "Title is required" });
       }
 
-      const boardId = req.header("boardId");
+      const boardId = req.params.boardId;
 
       // Create and save the list
       const newList = new List({ title });
@@ -39,7 +39,9 @@ router.post(
       });
       await board.save();
 
-      return res.status(200).json(list);
+      return res
+        .status(200)
+        .json({ message: "List created successfully", list });
     } catch (err) {
       console.error(err.message);
       return res.status(500).json({ message: "Server Error" });
@@ -130,7 +132,7 @@ router.patch(
 
 // Archive/Unarchive a list
 router.patch(
-  "/archive/:archive/:id",
+  "/archive/:boardId/:archive/:id",
   [
     auth,
     // member
@@ -147,7 +149,7 @@ router.patch(
 
       // Log activity
       const user = await User.findById(req.user._id);
-      const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       board.activity.unshift({
         text: list.archived
           ? `${user.name} archived list '${list.title}'`
@@ -165,7 +167,7 @@ router.patch(
 
 // Move a list
 router.patch(
-  "/move/:id",
+  "/move/:boardId/:id",
   [
     auth,
     // member
@@ -173,7 +175,7 @@ router.patch(
   async (req, res) => {
     try {
       const toIndex = req.body.toIndex ? req.body.toIndex : 0;
-      const boardId = req.header("boardId");
+      const boardId = req.params.boardId;
       const listId = req.params.id;
 
       const board = await Board.findById(boardId);
@@ -200,7 +202,7 @@ router.patch(
 
 // Delete a list
 router.delete(
-  "/:id",
+  "/:boardId/:id",
   [
     auth,
     // member
@@ -210,7 +212,7 @@ router.delete(
       const list = await List.findById(req.params.id);
       if (!list) return res.status(404).json({ message: "List not found" });
 
-      const board = await Board.findById(req.header("boardId"));
+      const board = await Board.findById(req.params.boardId);
       if (!board) {
         return res.status(404).json({ message: "Board not found" });
       }

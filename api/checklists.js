@@ -40,7 +40,7 @@ router.post(
 
 // Rename a checklist's item's text
 router.patch(
-  "/:cardId/:itemId",
+  "/:boardId/:cardId/:itemId",
   [
     auth,
     // member
@@ -52,7 +52,7 @@ router.patch(
         return res.status(400).json({ message: "Text is required" });
       }
 
-      const boardId = req.header("boardId");
+      const boardId = req.params.boardId;
 
       const card = await Card.findById(req.params.cardId);
       if (!card) {
