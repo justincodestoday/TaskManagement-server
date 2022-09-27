@@ -11,294 +11,326 @@ const Card = require("../models/Card");
 
 // Add a card
 router.post(
-  "/:boardId/",
-  [
-    auth,
-    // member
-  ],
-  async (req, res) => {
-    try {
-      const { title, listId } = req.body;
+    "/:boardId/",
+    [
+        auth,
+        // member
+    ],
+    async (req, res) => {
+        try {
+            const { title, listId } = req.body;
 
-      if (title === "") {
-        return res.status(400).json({ message: "Title is required" });
-      }
+            if (title === "") {
+                return res.status(400).json({ message: "Title is required" });
+            }
 
-      const boardId = req.params.boardId;
+            const boardId = req.params.boardId;
 
-      // Create and save the card
-      const newCard = new Card({ title });
-      const card = await newCard.save();
+            // Create and save the card
+            const newCard = new Card({ title });
+            const card = await newCard.save();
 
-      // Assign the card to the list
-      const list = await List.findById(listId);
-      list.cards.push(card.id);
-      await list.save();
+            // Assign the card to the list
+            const list = await List.findById(listId);
+            list.cards.push(card.id);
+            await list.save();
 
-      // Log activity
-      const user = await User.findById(req.user._id);
-      const board = await Board.findById(boardId);
-      board.activity.unshift({
-        text: `${user.name} added '${title}' to '${list.title}'`,
-      });
-      await board.save();
+            // Assign the card to the board
+            const board = await Board.findById(boardId);
+            board.cards.push(card.id);
 
-      return res.status(200).json({
-        message: "Card created successfully",
-        cardId: card.id,
-        listId,
-      });
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
+            // Log activity
+            const user = await User.findById(req.user._id);
+            board.activity.unshift({
+                text: `${user.name} added '${title}' to '${list.title}'`,
+            });
+            await board.save();
+
+            return res.status(200).json({
+                message: "Card created successfully",
+                cardId: card.id,
+                listId,
+            });
+        } catch (err) {
+            console.error(err.message);
+            return res.status(500).json({ message: "Server Error" });
+        }
     }
-  }
 );
+
+// Get all of a board's cards
+router.get("/board-cards/:boardId", auth, async (req, res) => {
+    try {
+        const board = await Board.findById(req.params.boardId);
+        if (!board) {
+            return res.status(404).json({ message: "Board not found" });
+        }
+
+        const cards = [];
+        for (const cardId of board.cards) {
+            cards.push(await Card.findById(cardId));
+        }
+
+        return res.status(200).json(cards);
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Server Error" });
+    }
+});
 
 // Get all of a list's cards
 router.get("/list-cards/:listId", auth, async (req, res) => {
-  try {
-    const list = await List.findById(req.params.listId);
-    if (!list) {
-      return res.status(404).json({ message: "List not found" });
-    }
+    try {
+        const list = await List.findById(req.params.listId);
+        if (!list) {
+            return res.status(404).json({ message: "List not found" });
+        }
 
-    const cards = [];
-    for (const cardId of list.cards) {
-      cards.push(await Card.findById(cardId));
-    }
+        const cards = [];
+        for (const cardId of list.cards) {
+            cards.push(await Card.findById(cardId));
+        }
 
-    return res.status(200).json(cards);
-  } catch (err) {
-    console.error(err.message);
-    return res.status(500).json({ message: "Server Error" });
-  }
+        return res.status(200).json(cards);
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Server Error" });
+    }
 });
 
 // Get a card by id
 router.get("/:id", auth, async (req, res) => {
-  try {
-    const card = await Card.findById(req.params.id);
-    if (!card) {
-      return res.status(404).json({ message: "Card not found" });
-    }
+    try {
+        const card = await Card.findById(req.params.id);
+        if (!card) {
+            return res.status(404).json({ message: "Card not found" });
+        }
 
-    return res.status(200).json(card);
-  } catch (err) {
-    console.error(err.message);
-    return res.status(500).json({ message: "Server Error" });
-  }
+        return res.status(200).json(card);
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Server Error" });
+    }
 });
 
 // Edit a card's title, description, and/or label
 router.patch(
-  "/rename/:id",
-  [
-    auth,
-    // member
-  ],
-  async (req, res) => {
-    try {
-      const { title, description, label } = req.body;
+    "/rename/:id",
+    [
+        auth,
+        // member
+    ],
+    async (req, res) => {
+        try {
+            const { title, description, label } = req.body;
 
-      const card = await Card.findById(req.params.id);
-      if (!card) {
-        return res.status(404).json({ message: "Card not found" });
-      }
+            const card = await Card.findById(req.params.id);
+            if (!card) {
+                return res.status(404).json({ message: "Card not found" });
+            }
 
-      card.title = title ? title : card.title;
-      if (description || description === "") {
-        card.description = description;
-      }
-      if (label || label === "") {
-        card.label = label;
-      }
-      await card.save();
+            card.title = title ? title : card.title;
+            if (description || description === "") {
+                card.description = description;
+            }
+            if (label || label === "") {
+                card.label = label;
+            }
+            await card.save();
 
-      return res
-        .status(200)
-        .json({ message: "Card edited successfully", card });
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
+            return res
+                .status(200)
+                .json({ message: "Card edited successfully", card });
+        } catch (err) {
+            console.error(err.message);
+            return res.status(500).json({ message: "Server Error" });
+        }
     }
-  }
 );
 
 // Archive/Unarchive a card
 router.patch(
-  "/archive/:boardId/:archive/:id",
-  [
-    auth,
-    // member
-  ],
-  async (req, res) => {
-    try {
-      const card = await Card.findById(req.params.id);
-      if (!card) {
-        return res.status(404).json({ message: "Card not found" });
-      }
+    "/archive/:boardId/:archive/:id",
+    [
+        auth,
+        // member
+    ],
+    async (req, res) => {
+        try {
+            const card = await Card.findById(req.params.id);
+            if (!card) {
+                return res.status(404).json({ message: "Card not found" });
+            }
 
-      card.archived = req.params.archive === "true";
-      await card.save();
+            card.archived = req.params.archive === "true";
+            await card.save();
 
-      // Log activity
-      const user = await User.findById(req.user._id);
-      const board = await Board.findById(req.params.boardId);
-      board.activity.unshift({
-        text: card.archived
-          ? `${user.name} archived card '${card.title}'`
-          : `${user.name} sent card '${card.title}' to the board`,
-      });
-      await board.save();
+            // Log activity
+            const user = await User.findById(req.user._id);
+            const board = await Board.findById(req.params.boardId);
+            board.activity.unshift({
+                text: card.archived
+                    ? `${user.name} archived card '${card.title}'`
+                    : `${user.name} sent card '${card.title}' to the board`,
+            });
+            await board.save();
 
-      return res.status(200).json(card);
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
+            return res.status(200).json(card);
+        } catch (err) {
+            console.error(err.message);
+            return res.status(500).json({ message: "Server Error" });
+        }
     }
-  }
 );
 
 // Move a card
 router.patch(
-  "/move/:boardId/:id",
-  [
-    auth,
-    // member
-  ],
-  async (req, res) => {
-    try {
-      const { fromId, toId, toIndex } = req.body;
-      const boardId = req.params.boardId;
-      const cardId = req.params.id;
+    "/move/:boardId/:id",
+    [
+        auth,
+        // member
+    ],
+    async (req, res) => {
+        try {
+            const { fromId, toId, toIndex } = req.body;
+            const boardId = req.params.boardId;
+            const cardId = req.params.id;
 
-      const from = await List.findById(fromId);
-      let to = await List.findById(toId);
-      if (!cardId || !from || !to) {
-        return res.status(404).json({ message: "List/card not found" });
-      } else if (fromId === toId) {
-        to = from;
-      }
+            const from = await List.findById(fromId);
+            let to = await List.findById(toId);
+            if (!cardId || !from || !to) {
+                return res.status(404).json({ message: "List/card not found" });
+            } else if (fromId === toId) {
+                to = from;
+            }
 
-      const fromIndex = from.cards.indexOf(cardId);
-      if (fromIndex !== -1) {
-        from.cards.splice(fromIndex, 1);
-        await from.save();
-      }
+            const fromIndex = from.cards.indexOf(cardId);
+            if (fromIndex !== -1) {
+                from.cards.splice(fromIndex, 1);
+                await from.save();
+            }
 
-      if (!to.cards.includes(cardId)) {
-        if (toIndex === 0 || toIndex) {
-          to.cards.splice(toIndex, 0, cardId);
-        } else {
-          to.cards.push(cardId);
+            if (!to.cards.includes(cardId)) {
+                if (toIndex === 0 || toIndex) {
+                    to.cards.splice(toIndex, 0, cardId);
+                } else {
+                    to.cards.push(cardId);
+                }
+                await to.save();
+            }
+
+            // Log activity
+            const user = await User.findById(req.user.id);
+            const board = await Board.findById(boardId);
+            const card = await Card.findById(cardId);
+            if (fromId !== toId) {
+                board.activity.unshift({
+                    text: `${user.name} moved '${card.title}' from '${from.title}' to '${to.title}'`,
+                });
+                await board.save();
+            }
+
+            return res.status(200).json({ cardId, from, to });
+        } catch (err) {
+            console.error(err.message);
+            return res.status(500).json({ message: "Server Error" });
         }
-        await to.save();
-      }
-
-      // Log activity
-      const user = await User.findById(req.user.id);
-      const board = await Board.findById(boardId);
-      const card = await Card.findById(cardId);
-      if (fromId !== toId) {
-        board.activity.unshift({
-          text: `${user.name} moved '${card.title}' from '${from.title}' to '${to.title}'`,
-        });
-        await board.save();
-      }
-
-      return res.status(200).json({ cardId, from, to });
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
     }
-  }
 );
 
 // Add/Remove a member
 router.put(
-  "/add-member/:boardId/:add/:cardId/:userId",
-  [
-    auth,
-    // member
-  ],
-  async (req, res) => {
-    try {
-      const { cardId, userId } = req.params;
-      const card = await Card.findById(cardId);
-      const user = await User.findById(userId);
-      if (!card || !user) {
-        return res.status(404).json({ message: "Card/user not found" });
-      }
+    "/add-member/:boardId/:add/:cardId/:userId",
+    [
+        auth,
+        // member
+    ],
+    async (req, res) => {
+        try {
+            const { cardId, userId } = req.params;
+            const card = await Card.findById(cardId);
+            const user = await User.findById(userId);
+            if (!card || !user) {
+                return res.status(404).json({ message: "Card/user not found" });
+            }
 
-      const add = req.params.add === "true";
-      const members = JSON.stringify(card.members.map((member) => member.user));
+            const add = req.params.add === "true";
+            const members = JSON.stringify(
+                card.members.map((member) => member.user)
+            );
 
-      // Look for the index of the user in the card's members
-      const memberIndex = card.members.indexOf(
-        card.members.find((cardId) => cardId.user == userId)
-      );
+            // Look for the index of the user in the card's members
+            const memberIndex = card.members.indexOf(
+                card.members.find((cardId) => cardId.user == userId)
+            );
 
-      // See if the user is already in the card's members
-      if ((add && members.includes(userId)) || (!add && memberIndex === -1)) {
-        return res.json(card);
-      }
+            // See if the user is already in the card's members
+            if (
+                (add && members.includes(userId)) ||
+                (!add && memberIndex === -1)
+            ) {
+                return res.json(card);
+            }
 
-      if (add) {
-        card.members.push({ user: user.id, name: user.name });
-      } else {
-        card.members.splice(memberIndex, 1);
-      }
-      await card.save();
+            if (add) {
+                card.members.push({ user: user.id, name: user.name });
+            } else {
+                card.members.splice(memberIndex, 1);
+            }
+            await card.save();
 
-      // Log activity
-      const board = await Board.findById(req.params.boardId);
-      board.activity.unshift({
-        text: `${user.name} ${add ? "joined" : "left"} '${card.title}'`,
-      });
-      await board.save();
+            // Log activity
+            const board = await Board.findById(req.params.boardId);
+            board.activity.unshift({
+                text: `${user.name} ${add ? "joined" : "left"} '${card.title}'`,
+            });
+            await board.save();
 
-      return res.status(200).json(card);
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
+            return res.status(200).json(card);
+        } catch (err) {
+            console.error(err.message);
+            return res.status(500).json({ message: "Server Error" });
+        }
     }
-  }
 );
 
 // Delete a card
 router.delete(
-  "/:boardId/:listId/:id",
-  [
-    auth,
-    // member
-  ],
-  async (req, res) => {
-    try {
-      const card = await Card.findById(req.params.id);
-      const list = await List.findById(req.params.listId);
-      if (!card || !list) {
-        return res.status(404).json({ message: "List/card not found" });
-      }
+    "/:boardId/:listId/:id",
+    [
+        auth,
+        // member
+    ],
+    async (req, res) => {
+        try {
+            const card = await Card.findById(req.params.id);
+            const list = await List.findById(req.params.listId);
+            const board = await Board.findById(req.params.boardId);
 
-      list.cards.splice(list.cards.indexOf(req.params.id), 1);
-      await list.save();
-      await card.remove();
+            if (!card || !list) {
+                return res.status(404).json({ message: "List/card not found" });
+            }
 
-      // Log activity
-      const user = await User.findById(req.user._id);
-      const board = await Board.findById(req.params.boardId);
-      board.activity.unshift({
-        text: `${user.name} deleted '${card.title}' from '${list.title}'`,
-      });
-      await board.save();
+            list.cards.splice(list.cards.indexOf(req.params.id), 1);
+            board.cards.splice(board.cards.indexOf(req.params.id), 1);
+            await list.save();
+            await card.remove();
 
-      return res.status(200).json({ message: "Card deleted successfully" });
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ message: "Server Error" });
+            // Log activity
+            const user = await User.findById(req.user._id);
+            board.activity.unshift({
+                text: `${user.name} deleted '${card.title}' from '${list.title}'`,
+            });
+            await board.save();
+
+            return res
+                .status(200)
+                .json({ message: "Card deleted successfully" });
+        } catch (err) {
+            console.error(err.message);
+            return res.status(500).json({ message: "Server Error" });
+        }
     }
-  }
 );
 
 module.exports = router;
